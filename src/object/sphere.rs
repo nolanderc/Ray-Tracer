@@ -11,9 +11,9 @@ pub struct Sphere {
     pub radius: f64
 }
 
+impl super::WorldObject for Sphere {
 
-impl Sphere {}
-
+}
 
 impl IntersectRay for Sphere {
     fn intersect(&self, ray: Ray) -> Option<RayIntersection> {
@@ -40,12 +40,16 @@ impl IntersectRay for Sphere {
 
         let deviation = (radius_squared - distance_squared).sqrt();
 
-        // There are two solutions, but we only care about the first (negative) one
+        // There are two solutions
         let a_x = closest_x - deviation * ray.dx;
         let a_y = closest_y - deviation * ray.dy;
         let a_z = closest_z - deviation * ray.dz;
 
-        if dot - deviation >= 0.0 {
+        let b_x = closest_x + deviation * ray.dx;
+        let b_y = closest_y + deviation * ray.dy;
+        let b_z = closest_z + deviation * ray.dz;
+
+        if dot - deviation >= 0.0 || deviation == 0.0 {
             Some(RayIntersection {
                 x: a_x,
                 y: a_y,
@@ -58,7 +62,17 @@ impl IntersectRay for Sphere {
                 distance: dot - deviation
             })
         } else {
-            None
+            Some(RayIntersection {
+                x: b_x,
+                y: b_y,
+                z: b_z,
+
+                nx: (b_x - self.x) / self.radius,
+                ny: (b_y - self.y) / self.radius,
+                nz: (b_z - self.z) / self.radius,
+
+                distance: dot - deviation
+            })
         }
     }
 }
