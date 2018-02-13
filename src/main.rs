@@ -16,8 +16,8 @@ fn main() {
     let mut scene = scene::Scene::new();
 
     let mut camera = camera::Camera::new();
-    let (x, y, z) = (2.0, 5.0, -5.0);
-    camera.look_at([x, y, z], [-x, -y, -z], [0.0, 1.0, 0.0]);
+    let (x, y, z) = (4.0, 3.0, -3.0);
+    camera.look_at([x, y, z], [-x - 1.0, -y + 0.5, -z + 1.0], [0.0, 1.0, 0.0]);
     camera.set_field_of_view_deg(70.0);
 
     scene.set_camera(camera);
@@ -25,9 +25,9 @@ fn main() {
 
     scene.add_object(Box::new(
         Sphere {
-            x: 0.0,
+            x: -1.0,
             y: 0.0,
-            z: 0.0,
+            z: 0.75,
             radius: 0.5,
         }
     ));
@@ -36,24 +36,24 @@ fn main() {
         Sphere {
             x: 0.5,
             y: 0.25,
-            z: 1.0,
+            z: 1.5,
             radius: 0.75,
         }
     ));
 
     scene.add_object(Box::new(
         Sphere {
-            x: -2.0,
+            x: -5.0,
             y: 0.0,
-            z: 1.0,
+            z: 5.0,
             radius: 0.5,
         }
     ));
 
 
-    scene.add_light(4.0, 2.0, 0.0, 0.5);
+    scene.add_light(3.0, 1.5, 1.5, 0.5);
 
-    let bitmap = scene.trace(640, 360, 4);
+    let bitmap = scene.trace(1920, 1080, 4);
 
     if let Err(e) = bitmap.save("bitmap.png") {
         println!("{}", e);

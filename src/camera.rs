@@ -1,5 +1,6 @@
 use ::ray::Ray;
 
+#[derive(Clone)]
 pub struct Camera {
     position: [f64; 3],
     direction: [f64; 3],

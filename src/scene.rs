@@ -6,6 +6,7 @@ use ::object::WorldObject;
 
 use ::ray::{Ray, IntersectRay, RayIntersection};
 
+
 pub struct Scene {
     camera: Camera,
 
@@ -62,25 +63,74 @@ impl Scene {
 
 
     /// Trace the scene, return the bitmap
-    pub fn trace(&self, width: u32, height: u32, samples: u32) -> Bitmap {
+    pub fn trace(self, width: u32, height: u32, samples: u32) -> Bitmap {
         let mut bitmap = Bitmap::new(width, height);
         let aspect_ratio = width as f64 / height as f64;
 
-        let thread_count = 4;
+        let thread_count = 8;
         let mut threads = Vec::new();
 
         use std::sync::mpsc::{channel};
-        // let (sender, receiver) = channel();
+        let (sender, receiver) = channel();
+
+        use std::sync::{Arc, Mutex};
+        let columns = Arc::new(Mutex::new((0..width).collect::<Vec<u32>>()));
+
+        let scene = Arc::new(self);
 
         use std::thread;
         for thread in 0..thread_count {
-            // let sender = sender.clone();
+            let columns = columns.clone();
+            let sender = sender.clone();
+            let scene = scene.clone();
             threads.push(thread::spawn(move||{
+                loop {
+                    let x = {
+                        let mut columns = columns.lock().unwrap();
+                        if let Some(column) = columns.pop() {
+                            column
+                        } else {
+                            break;
+                        }
+                    };
 
+                    let mut colors = Vec::with_capacity(height as usize);
+
+                    for y in 0..height {
+                        let mut average_color = Color::zero();
+                        let mut color_sampling = 0.0;
+
+                        for dx in 0..samples {
+                            for dy in 0..samples {
+                                let px = (dx as f64 / samples as f64 + x as f64) / width as f64;
+                                let py = (dy as f64 / samples as f64 + y as f64) / height as f64;
+
+                                let ray = scene.camera.cast_ray(2.0 * px - 1.0, 1.0 - 2.0 * py, aspect_ratio);
+                                let color = scene.cast_ray(ray);
+
+                                average_color.r += color.r as f64;
+                                average_color.g += color.g as f64;
+                                average_color.b += color.b as f64;
+                                average_color.a += color.a as f64;
+
+                                color_sampling += color.a;
+                            }
+                        }
+
+                        average_color.r /= color_sampling;
+                        average_color.g /= color_sampling;
+                        average_color.b /= color_sampling;
+                        average_color.a /= (samples * samples) as f64;
+
+                        colors.push(average_color);
+                    }
+
+                    sender.send((x, colors));
+                }
             }));
         }
 
-        for x in 0..width {
+        /*for x in 0..width {
             for y in 0..height {
                 let mut average_color = Color::zero();
                 let mut color_sampling = 0.0;
@@ -113,6 +163,22 @@ impl Scene {
             }
 
             println!("Progress: {:.2}%", 100.0 * (x as f64 + 1.0) / width as f64);
+        }*/
+
+        let mut received_columns = 0;
+
+        while let Ok((column, colors)) = receiver.recv() {
+            // println!("Got pixel: {}, {}", x, y);
+            for y in 0..height {
+                bitmap.set_pixel(column, y, colors[y as usize]);
+            }
+
+            received_columns += 1;
+            println!("Progress: {:.2}% ({} / {})", 100.0 * received_columns as f64 / (width) as f64, received_columns, width);
+
+            if received_columns == width {
+                break;
+            }
         }
 
 
@@ -190,10 +256,19 @@ impl Scene {
                             };
 
                             if self.get_ray_intersection(bounce_ray).is_none() {
-                                lightness += 0.95 / samples as f64;
+                                let dx = bounce_ray.dx;
+                                let dy = bounce_ray.dy;
+                                let dz = bounce_ray.dz;
+
+                                let nx = intersection.nx;
+                                let ny = intersection.ny;
+                                let nz = intersection.nz;
+
+                                // Phong shading
+                                let dot = (dx*nx + dy*ny + dz*nz);
+                                lightness += 0.95 / samples as f64 * if dot < 0.0 {0.0} else {dot};
                             }
                         }
-
                     }
                 }
             }
